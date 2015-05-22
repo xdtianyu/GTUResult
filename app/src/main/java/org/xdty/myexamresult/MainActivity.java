@@ -36,7 +36,6 @@ public class MainActivity extends Activity {
     private final static String TAG = "MainActivity";
 
     private final static String HOST = "http://gturesults.in/";
-    private final static String PAGE = "Default.aspx?ext=w1024";
     ArrayAdapter<String> optionsAdapter;
     ArrayAdapter<String> groupsAdapter;
     private EditText captcha;
