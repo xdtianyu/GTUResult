@@ -26,8 +26,9 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
 
@@ -36,6 +37,7 @@ public class MainActivity extends Activity {
     private final static String TAG = "MainActivity";
 
     private final static String HOST = "http://gturesults.in/";
+    private final static String PAGE = "Default.aspx?ext=archive";
     ArrayAdapter<String> optionsAdapter;
     ArrayAdapter<String> groupsAdapter;
     private EditText captcha;
@@ -48,7 +50,7 @@ public class MainActivity extends Activity {
     private ImageView captchaImageView;
     private WebView webView;
     private Button submitButton;
-    private HashSet<String> groups = new HashSet<>();
+    private ArrayList<String> groups = new ArrayList<>();
     private HashMap<String, String> options = new HashMap<>();
     private String __VIEWSTATEGENERATOR = "";
     private String __VIEWSTATE = "";
@@ -102,6 +104,7 @@ public class MainActivity extends Activity {
                         optionsAdapter.add(options.get(option));
                     }
                 }
+
                 optionsAdapter.notifyDataSetChanged();
             }
 
@@ -211,6 +214,9 @@ public class MainActivity extends Activity {
             //text.setText(s);
 
             Picasso.with(MainActivity.this).load(HOST + captchaText).into(captchaImageView);
+
+            Collections.sort(groups);
+            options = (HashMap<String, String>)Utils.sortByValue(options);
 
             for (String group : groups) {
                 groupsAdapter.add(group);

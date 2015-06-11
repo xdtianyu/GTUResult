@@ -1,6 +1,8 @@
-<FrameLayout  xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+             android:layout_width="match_parent"
+             android:layout_height="match_parent"
+             android:padding="10dp">
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -10,13 +12,13 @@
             android:id="@+id/group"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:padding="10dp"></Spinner>
+            android:padding="10dp"/>
 
         <Spinner
             android:id="@+id/option"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:padding="10dp"></Spinner>
+            android:padding="10dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -28,12 +30,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:padding="5dp"
-                android:text="Enroll No." />
+                android:text="Enroll No."/>
 
             <EditText
                 android:id="@+id/number"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"/>
         </LinearLayout>
 
         <LinearLayout
@@ -46,12 +48,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:padding="5dp"
-                android:text="Seat No." />
+                android:text="Seat No."/>
 
             <EditText
                 android:id="@+id/seat_number"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"/>
         </LinearLayout>
 
         <LinearLayout
@@ -64,20 +66,21 @@
                 android:id="@+id/captcha_image"
                 android:layout_width="100dp"
                 android:layout_height="50dp"
-                android:scaleType="fitXY" />
+                android:scaleType="fitXY"/>
 
             <EditText
                 android:id="@+id/captcha"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"/>
         </LinearLayout>
 
         <Button
             android:id="@+id/submit"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="sumbit" />
+            android:text="sumbit"/>
     </LinearLayout>
+
     <WebView
         android:id="@+id/webview"
         android:layout_width="match_parent"
