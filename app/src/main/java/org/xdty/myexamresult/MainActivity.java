@@ -38,13 +38,16 @@ public class MainActivity extends Activity {
 
     private final static String HOST = "http://gturesults.in/";
     private final static String PAGE = "Default.aspx?ext=archive";
+    ArrayAdapter<String> sessionAdapter;
     ArrayAdapter<String> optionsAdapter;
     ArrayAdapter<String> groupsAdapter;
     private EditText captcha;
     private EditText seatNumber;
     private EditText number;
     private String captchaText;
+    private String ddlsessionText;
     private String ddlbatchText;
+    private Spinner sessionSpinner;
     private Spinner optionsSpinner;
     private Spinner groupsSpinner;
     private ImageView captchaImageView;
@@ -52,10 +55,15 @@ public class MainActivity extends Activity {
     private Button submitButton;
     private ArrayList<String> groups = new ArrayList<>();
     private HashMap<String, String> options = new HashMap<>();
+    private HashMap<String, String> sessions = new HashMap<>();
     private String __VIEWSTATEGENERATOR = "";
     private String __VIEWSTATE = "";
     private String __EVENTARGUMENT = "";
     private String __EVENTTARGET = "";
+
+    private boolean isFetching = false;
+
+    private String defaultSession = "";
 
     @Override
     public void onBackPressed() {
@@ -74,6 +82,7 @@ public class MainActivity extends Activity {
         captcha = (EditText) findViewById(R.id.captcha);
         number = (EditText) findViewById(R.id.number);
         seatNumber = (EditText) findViewById(R.id.seat_number);
+        sessionSpinner = (Spinner) findViewById(R.id.session);
         optionsSpinner = (Spinner) findViewById(R.id.option);
         groupsSpinner = (Spinner) findViewById(R.id.group);
         captchaImageView = (ImageView) findViewById(R.id.captcha_image);
@@ -87,11 +96,47 @@ public class MainActivity extends Activity {
             }
         });
 
+        sessionAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
         optionsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
         groupsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
 
-        optionsSpinner.setAdapter(optionsAdapter);
+        sessionSpinner.setAdapter(sessionAdapter);
         groupsSpinner.setAdapter(groupsAdapter);
+        optionsSpinner.setAdapter(optionsAdapter);
+
+        sessionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+
+                if (!isFetching) {
+                    String s = sessionSpinner.getSelectedItem().toString();
+
+                    for (Map.Entry<String, String> entry : sessions.entrySet()) {
+                        if (entry.getValue().equals(s)) {
+                            ddlsessionText = entry.getKey();
+                            break;
+                        }
+                    }
+
+                    sessions.clear();
+                    options.clear();
+                    groups.clear();
+
+                    optionsAdapter.clear();
+                    groupsAdapter.clear();
+                    optionsAdapter.notifyDataSetChanged();
+                    groupsAdapter.notifyDataSetChanged();
+
+                    (new SubmitTask()).execute(HOST + PAGE);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+
 
         groupsSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
 
@@ -122,6 +167,7 @@ public class MainActivity extends Activity {
                 for (Map.Entry<String, String> entry : options.entrySet()) {
                     if (entry.getValue().equals(s)) {
                         ddlbatchText = entry.getKey();
+                        break;
                     }
                 }
             }
@@ -135,10 +181,127 @@ public class MainActivity extends Activity {
         (new HttpTask()).execute(HOST + PAGE);
     }
 
+    private void parseHtml(String html) {
+        Document document = Jsoup.parse(html);
+
+        Element sessionElement = document.getElementById("ddlsession");
+
+        Elements sessionElements = sessionElement.getElementsByTag("option");
+
+        for (int i = 0; i < sessionElements.size(); i++) {
+            Element optionElement = sessionElements.get(i);
+            if (optionElement.attr("selected").equals("selected")) {
+                defaultSession = optionElement.val();
+            }
+
+            sessions.put(optionElement.val(), optionElement.text());
+        }
+
+        Element selectElement = document.getElementById("ddlbatch");
+
+        Elements groupElements = selectElement.getElementsByTag("optgroup");
+
+        for (int i = 0; i < groupElements.size(); i++) {
+            Element groupElement = groupElements.get(i);
+            String label = groupElement.attr("label");
+            groups.add(label);
+        }
+
+        Elements optionElements = selectElement.getElementsByTag("option");
+
+        for (int i = 0; i < optionElements.size(); i++) {
+            Element optionElement = optionElements.get(i);
+
+            Element previous = optionElement.previousElementSibling();
+
+            for (; previous.attr("label").isEmpty(); ) {
+                previous = previous.previousElementSibling();
+            }
+
+            String label = previous.attr("label");
+
+            String value = optionElement.text().replaceAll("\\.", "");
+
+            if (!value.startsWith(label)) {
+                value = value.replace(value.substring(0, label.length()), label);
+            }
+
+            options.put(optionElement.val(), value);
+        }
+
+        Elements imageElements = document.getElementsByTag("img");
+
+        for (int i = 0; i < imageElements.size(); i++) {
+            Element imageElement = imageElements.get(i);
+            if (imageElement.attr("src").startsWith("CaptchaImage")) {
+                captchaText = imageElement.attr("src");
+            }
+        }
+
+        Elements inputElements = document.getElementsByTag("input");
+
+        for (int i = 0; i < inputElements.size(); i++) {
+            Element inputElement = inputElements.get(i);
+
+            if (inputElement.val() != null) {
+                switch (inputElement.attr("name")) {
+                    case "__EVENTTARGET":
+                        __EVENTTARGET = inputElement.val();
+                        break;
+                    case "__EVENTARGUMENT":
+                        __EVENTARGUMENT = inputElement.val();
+                        break;
+                    case "__VIEWSTATE":
+                        __VIEWSTATE = inputElement.val();
+                        break;
+                    case "__VIEWSTATEGENERATOR":
+                        __VIEWSTATEGENERATOR = inputElement.val();
+                        break;
+                }
+            }
+        }
+    }
+
+    private void updateUI() {
+        Picasso.with(MainActivity.this).load(HOST + captchaText).into(captchaImageView);
+        sessions = (HashMap<String, String>) Utils.sortByValue(sessions);
+        options = (HashMap<String, String>) Utils.sortByValue(options);
+        Collections.sort(groups);
+
+        sessionAdapter.clear();
+        for (String session : sessions.keySet()) {
+            sessionAdapter.add(sessions.get(session));
+        }
+
+        sessionAdapter.notifyDataSetChanged();
+
+        String[] array = sessions.keySet().toArray(new String[sessions.size()]);
+        for (int i = 0; i < array.length; i++) {
+            if (array[i].equals(defaultSession)) {
+                sessionSpinner.setSelection(i);
+                break;
+            }
+        }
+
+        for (String group : groups) {
+            groupsAdapter.add(group);
+        }
+        groupsAdapter.notifyDataSetChanged();
+
+        sessionSpinner.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                isFetching = false;
+            }
+        }, 1000);
+    }
+
     class HttpTask extends AsyncTask<String, Void, String> {
 
         @Override
         protected String doInBackground(String... params) {
+
+            isFetching = true;
 
             String result = "";
 
@@ -150,57 +313,8 @@ public class MainActivity extends Activity {
 
             try {
                 response = client.newCall(request).execute();
-
-                Document document = Jsoup.parse(response.body().string());
-
-                Element selectElement = document.getElementById("ddlbatch");
-
-                Elements groupElements = selectElement.getElementsByTag("optgroup");
-
-                for (int i = 0; i < groupElements.size(); i++) {
-                    Element groupElement = groupElements.get(i);
-                    String label = groupElement.attr("label");
-                    groups.add(label);
-                }
-
-                Elements optionElements = selectElement.getElementsByTag("option");
-
-                for (int i = 0; i < optionElements.size(); i++) {
-                    Element optionElement = optionElements.get(i);
-                    options.put(optionElement.val(), optionElement.text().replaceAll("\\.", ""));
-                }
-
-                Elements imageElements = document.getElementsByTag("img");
-
-                for (int i = 0; i < imageElements.size(); i++) {
-                    Element imageElement = imageElements.get(i);
-                    if (imageElement.attr("src").startsWith("CaptchaImage")) {
-                        captchaText = imageElement.attr("src");
-                    }
-                }
-
-                Elements inputElements = document.getElementsByTag("input");
-
-                for (int i = 0; i < inputElements.size(); i++) {
-                    Element inputElement = inputElements.get(i);
-
-                    if (inputElement.val() != null) {
-                        switch (inputElement.attr("name")) {
-                            case "__EVENTTARGET":
-                                __EVENTTARGET = inputElement.val();
-                                break;
-                            case "__EVENTARGUMENT":
-                                __EVENTARGUMENT = inputElement.val();
-                                break;
-                            case "__VIEWSTATE":
-                                __VIEWSTATE = inputElement.val();
-                                break;
-                            case "__VIEWSTATEGENERATOR":
-                                __VIEWSTATEGENERATOR = inputElement.val();
-                                break;
-                        }
-                    }
-                }
+                result = response.body().string();
+                parseHtml(result);
 
                 return result;
             } catch (IOException e) {
@@ -212,16 +326,7 @@ public class MainActivity extends Activity {
         @Override
         protected void onPostExecute(String s) {
             //text.setText(s);
-
-            Picasso.with(MainActivity.this).load(HOST + captchaText).into(captchaImageView);
-
-            Collections.sort(groups);
-            options = (HashMap<String, String>)Utils.sortByValue(options);
-
-            for (String group : groups) {
-                groupsAdapter.add(group);
-            }
-            groupsAdapter.notifyDataSetChanged();
+            updateUI();
         }
     }
 
@@ -240,6 +345,7 @@ public class MainActivity extends Activity {
                         .add("__EVENTARGUMENT", __EVENTARGUMENT)
                         .add("__VIEWSTATE", __VIEWSTATE)
                         .add("__VIEWSTATEGENERATOR", __VIEWSTATEGENERATOR)
+                        .add("ddlsession", ddlsessionText)
                         .add("ddlbatch", ddlbatchText)
                         .add("txtenroll", number.getText().toString())
                         .add("txtSheetNo", seatNumber.getText().toString())
@@ -253,9 +359,11 @@ public class MainActivity extends Activity {
                         .url(params[0])
                         .post(body)
                         .build();
-                Response response = null;
-                response = client.newCall(request).execute();
+                Response response = response = client.newCall(request).execute();
                 result = response.body().string();
+
+                parseHtml(result);
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -265,9 +373,12 @@ public class MainActivity extends Activity {
 
         @Override
         protected void onPostExecute(String s) {
-            webView.getSettings().setJavaScriptEnabled(true);
-            webView.loadDataWithBaseURL("", s, "text/html", "UTF-8", "");
-            webView.setVisibility(View.VISIBLE);
+
+            updateUI();
+
+//            webView.getSettings().setJavaScriptEnabled(true);
+//            webView.loadDataWithBaseURL("", s, "text/html", "UTF-8", "");
+//            webView.setVisibility(View.VISIBLE);
         }
     }
 }
