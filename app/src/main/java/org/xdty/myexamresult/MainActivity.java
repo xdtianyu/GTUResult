@@ -1,17 +1,20 @@
 package org.xdty.myexamresult;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.squareup.okhttp.FormEncodingBuilder;
 import com.squareup.okhttp.OkHttpClient;
@@ -34,24 +37,25 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
 
+    final static String errorCaptcha = "ERROR: Incorrect captcha code, try again.";
     private final static String TAG = "MainActivity";
-
     private final static String HOST = "http://gturesults.in/";
     private final static String PAGE = "Default.aspx?ext=archive";
     ArrayAdapter<String> sessionAdapter;
     ArrayAdapter<String> optionsAdapter;
     ArrayAdapter<String> groupsAdapter;
+    SharedPreferences.Editor editor;
+    SharedPreferences prefs;
     private EditText captcha;
     private EditText seatNumber;
     private EditText number;
-    private String captchaText;
-    private String ddlsessionText;
-    private String ddlbatchText;
+    private String captchaText = "";
+    private String ddlsessionText = "";
+    private String ddlbatchText = "";
     private Spinner sessionSpinner;
     private Spinner optionsSpinner;
     private Spinner groupsSpinner;
     private ImageView captchaImageView;
-    private WebView webView;
     private Button submitButton;
     private ArrayList<String> groups = new ArrayList<>();
     private HashMap<String, String> options = new HashMap<>();
@@ -60,24 +64,33 @@ public class MainActivity extends Activity {
     private String __VIEWSTATE = "";
     private String __EVENTARGUMENT = "";
     private String __EVENTTARGET = "";
-
     private boolean isFetching = false;
-
     private String defaultSession = "";
+    private ArrayList<Subject> subjects = new ArrayList<>();
+    private Result result;
+
+    private TextView resultTextView;
+    private TextView subjectResultTextView;
+    private ListView listView;
+    private ArrayAdapter<Subject> listAdapter;
+
+    private boolean isInit = true;
 
     @Override
     public void onBackPressed() {
-        if (webView.getVisibility() != View.GONE) {
-            webView.setVisibility(View.GONE);
-        } else {
-            super.onBackPressed();
-        }
+        super.onBackPressed();
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        final SharedPreferences prefs = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+
+        resultTextView = (TextView) findViewById(R.id.result);
+        subjectResultTextView = (TextView) findViewById(R.id.subject_result);
+        listView = (ListView) findViewById(R.id.list);
 
         captcha = (EditText) findViewById(R.id.captcha);
         number = (EditText) findViewById(R.id.number);
@@ -87,18 +100,40 @@ public class MainActivity extends Activity {
         groupsSpinner = (Spinner) findViewById(R.id.group);
         captchaImageView = (ImageView) findViewById(R.id.captcha_image);
         submitButton = (Button) findViewById(R.id.submit);
-        webView = (WebView) findViewById(R.id.webview);
+
+        number.setText(prefs.getString("number", ""));
+        seatNumber.setText(prefs.getString("seatNumber", ""));
+
+        defaultSession = prefs.getString("session", "");
+        ddlsessionText = prefs.getString("session", "");
+
+        listAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, subjects);
+
+        listView.setAdapter(listAdapter);
+
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+            }
+        });
 
         submitButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
+                editor.putString("number", number.getText().toString());
+                editor.putString("seatNumber", seatNumber.getText().toString());
+                editor.commit();
+
                 (new SubmitTask()).execute(HOST + PAGE);
             }
         });
 
-        sessionAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
-        optionsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
-        groupsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        sessionAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
+        optionsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
+        groupsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
 
         sessionSpinner.setAdapter(sessionAdapter);
         groupsSpinner.setAdapter(groupsAdapter);
@@ -114,6 +149,13 @@ public class MainActivity extends Activity {
                     for (Map.Entry<String, String> entry : sessions.entrySet()) {
                         if (entry.getValue().equals(s)) {
                             ddlsessionText = entry.getKey();
+
+                            editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
+                            editor.putString("session", ddlsessionText);
+                            editor.commit();
+
+                            defaultSession = ddlsessionText;
+
                             break;
                         }
                     }
@@ -137,13 +179,34 @@ public class MainActivity extends Activity {
             }
         });
 
-
         groupsSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
 
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+
                 optionsAdapter.clear();
+
                 String s = groupsSpinner.getSelectedItem().toString();
+
+                if (isInit) {
+                    s = prefs.getString("groups", groupsSpinner.getSelectedItem().toString());
+
+                    if (!groupsSpinner.getSelectedItem().toString().equals(s)) {
+
+                        for (int i=0; i< groups.size(); i++) {
+                            if (s != null && s.equals(groups.get(i))) {
+                                groupsSpinner.setSelection(i);
+                                break;
+                            }
+                        }
+                    }
+
+                } else {
+                    editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
+                    editor.putString("groups", s);
+                    editor.commit();
+                }
+
                 for (String option : options.keySet()) {
                     if (options.get(option).startsWith(s)) {
                         optionsAdapter.add(options.get(option));
@@ -162,14 +225,39 @@ public class MainActivity extends Activity {
         optionsSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+
                 String s = optionsSpinner.getSelectedItem().toString();
 
-                for (Map.Entry<String, String> entry : options.entrySet()) {
-                    if (entry.getValue().equals(s)) {
-                        ddlbatchText = entry.getKey();
-                        break;
+                if (isInit) {
+
+                    s = prefs.getString("optionsValue", groupsSpinner.getSelectedItem().toString());
+
+                    if (!optionsSpinner.getSelectedItem().toString().equals(s)) {
+
+                        for (int i=0; i< optionsAdapter.getCount(); i++) {
+                            if (s != null && s.equals(optionsAdapter.getItem(i))) {
+                                optionsSpinner.setSelection(i);
+                                break;
+                            }
+                        }
+                    }
+
+                } else {
+
+                    for (Map.Entry<String, String> entry : options.entrySet()) {
+                        if (entry.getValue().equals(s)) {
+                            ddlbatchText = entry.getKey();
+
+                            editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
+                            editor.putString("options", ddlbatchText);
+                            editor.putString("optionsValue", s);
+                            editor.commit();
+
+                            break;
+                        }
                     }
                 }
+                isInit = false;
             }
 
             @Override
@@ -191,7 +279,10 @@ public class MainActivity extends Activity {
         for (int i = 0; i < sessionElements.size(); i++) {
             Element optionElement = sessionElements.get(i);
             if (optionElement.attr("selected").equals("selected")) {
-                defaultSession = optionElement.val();
+
+                if (defaultSession.isEmpty()) {
+                    defaultSession = optionElement.val();
+                }
             }
 
             sessions.put(optionElement.val(), optionElement.text());
@@ -260,6 +351,103 @@ public class MainActivity extends Activity {
                 }
             }
         }
+
+        // parse result
+        parseResult(document);
+    }
+
+    private void parseResult(Document document) {
+        Element name = document.getElementById("lblName");
+
+        if (name == null) {
+            return;
+        }
+
+        result = new Result();
+
+        Element messageElement = document.getElementById("lblmsg");
+        result.message = messageElement.text();
+
+        makeToast(result.message);
+
+        if (result.message.equals(errorCaptcha)) {
+            return;
+        }
+
+        Element enrollmentNo = document.getElementById("lblEnrollmentNo");
+        Element exam = document.getElementById("lblExam");
+        Element declared = document.getElementById("lblDeclaredOn");
+        Element examName = document.getElementById("lblExamName");
+        Element branch = document.getElementById("lblBranchName");
+
+        result.name = name.text();
+        result.enrollmentNumber = enrollmentNo.text();
+        result.examSeat = exam.text();
+        result.declaredDate = declared.text();
+        result.exam = examName.text();
+        result.branch = branch.text();
+
+        Elements resultTables = document.getElementsByAttributeValue("class", "Rgrid");
+
+        if (resultTables.size() == 0) {
+            return;
+        }
+
+        Element subjectTable = resultTables.get(1);
+
+        Elements results = subjectTable.getElementsByAttributeValue("width", "8%");
+
+        subjects.clear();
+
+        for (int i = 0; i < results.size(); i++) {
+            Subject subject = new Subject();
+            Element element = results.get(i);
+            subject.code = element.text();
+            element = element.nextElementSibling();
+            subject.name = element.text();
+            element = element.nextElementSibling();
+
+            Element theoryElement = element.child(0).child(0).child(0).child(0);
+            subject.theory.ESE = theoryElement.text();
+            theoryElement = theoryElement.nextElementSibling().nextElementSibling();
+            subject.theory.PA = theoryElement.text();
+            theoryElement = theoryElement.nextElementSibling().nextElementSibling();
+            subject.theory.TOTAL = theoryElement.text();
+
+            element = element.nextElementSibling();
+            Element practicalElement = element.child(0).child(0).child(0).child(0);
+            subject.practical.ESE = practicalElement.text();
+            practicalElement = practicalElement.nextElementSibling().nextElementSibling();
+            subject.practical.PA = practicalElement.text();
+            practicalElement = practicalElement.nextElementSibling().nextElementSibling();
+            subject.practical.TOTAL = practicalElement.text();
+
+            element = element.nextElementSibling();
+            subject.grade = element.text();
+
+            subjects.add(subject);
+        }
+
+        Element resultElement = resultTables.get(2);
+        Element currentBacklog = resultElement.getElementById("lblCUPBack");
+        Element totalBacklog = resultElement.getElementById("lblTotalBack");
+        Element SPI = resultElement.getElementById("lblSPI");
+        Element CPI = resultElement.getElementById("lblCPI");
+
+        result.currentBacklog = currentBacklog.text();
+        result.totalBacklog = totalBacklog.text();
+        result.SPI = SPI.text();
+        result.CPI = CPI.text();
+    }
+
+    private void makeToast(final String message) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                resultTextView.setText(message);
+            }
+        });
     }
 
     private void updateUI() {
@@ -292,6 +480,9 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 isFetching = false;
+                listAdapter.notifyDataSetChanged();
+                Utils.setListViewHeightBasedOnChildren(listView);
+                subjectResultTextView.setText(result.toString());
             }
         }, 1000);
     }
@@ -327,6 +518,18 @@ public class MainActivity extends Activity {
         protected void onPostExecute(String s) {
             //text.setText(s);
             updateUI();
+            //(new SubmitTask()).execute(HOST, PAGE);
+
+            sessions.clear();
+            options.clear();
+            groups.clear();
+
+            optionsAdapter.clear();
+            groupsAdapter.clear();
+            optionsAdapter.notifyDataSetChanged();
+            groupsAdapter.notifyDataSetChanged();
+
+            (new SubmitTask()).execute(HOST + PAGE);
         }
     }
 
@@ -337,8 +540,14 @@ public class MainActivity extends Activity {
 
             String result = "";
 
+            isInit = true;
+
             try {
                 OkHttpClient client = new OkHttpClient();
+
+                String numberString = number.getText().toString();
+                String seatNumberString = seatNumber.getText().toString();
+                String captchaString = captcha.getText().toString();
 
                 RequestBody body = new FormEncodingBuilder()
                         .add("__EVENTTARGET", __EVENTTARGET)
@@ -347,9 +556,9 @@ public class MainActivity extends Activity {
                         .add("__VIEWSTATEGENERATOR", __VIEWSTATEGENERATOR)
                         .add("ddlsession", ddlsessionText)
                         .add("ddlbatch", ddlbatchText)
-                        .add("txtenroll", number.getText().toString())
-                        .add("txtSheetNo", seatNumber.getText().toString())
-                        .add("CodeNumberTextBox", captcha.getText().toString())
+                        .add("txtenroll", numberString)
+                        .add("txtSheetNo", seatNumberString)
+                        .add("CodeNumberTextBox", captchaString)
                         .add("btnSearch", "Search")
                         .build();
 
@@ -359,7 +568,7 @@ public class MainActivity extends Activity {
                         .url(params[0])
                         .post(body)
                         .build();
-                Response response = response = client.newCall(request).execute();
+                Response response = client.newCall(request).execute();
                 result = response.body().string();
 
                 parseHtml(result);
@@ -376,9 +585,6 @@ public class MainActivity extends Activity {
 
             updateUI();
 
-//            webView.getSettings().setJavaScriptEnabled(true);
-//            webView.loadDataWithBaseURL("", s, "text/html", "UTF-8", "");
-//            webView.setVisibility(View.VISIBLE);
         }
     }
 }
