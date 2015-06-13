@@ -14,7 +14,7 @@ Contribution
 1. Pull requests are welcome.
 2. Report a bug or have any good idea for improvement, you can submit an [issue](https://github.com/xdtianyu/GTUResult/issues) at github.
 
-Thanks to other open source projects
+Thanks to
 -------
 
 [OkHttp](https://github.com/square/okhttp): An HTTP & SPDY client for Android and Java applications
