@@ -1,4 +1,4 @@
-package org.xdty.myexamresult;
+package org.xdty.gturesult;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
@@ -590,6 +590,7 @@ public class MainActivity extends Activity {
 
             } catch (IOException e) {
                 e.printStackTrace();
+                makeToast(getString(R.string.error));
             }
 
             return result;

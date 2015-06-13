@@ -1,4 +1,4 @@
-package org.xdty.myexamresult;
+package org.xdty.gturesult;
 
 import android.view.View;
 import android.view.ViewGroup;

@@ -1,4 +1,4 @@
-package org.xdty.myexamresult;
+package org.xdty.gturesult;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

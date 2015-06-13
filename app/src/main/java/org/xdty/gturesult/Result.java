@@ -1,4 +1,4 @@
-package org.xdty.myexamresult;
+package org.xdty.gturesult;
 
 /**
  * Created by ty on 15-6-12.
