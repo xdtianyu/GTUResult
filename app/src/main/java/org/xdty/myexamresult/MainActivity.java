@@ -41,37 +41,44 @@ public class MainActivity extends Activity {
     private final static String TAG = "MainActivity";
     private final static String HOST = "http://gturesults.in/";
     private final static String PAGE = "Default.aspx?ext=archive";
+
     ArrayAdapter<String> sessionAdapter;
     ArrayAdapter<String> optionsAdapter;
     ArrayAdapter<String> groupsAdapter;
     SharedPreferences.Editor editor;
-    SharedPreferences prefs;
+
+    private TextView resultTextView;
+    private TextView subjectResultTextView;
+    private ListView listView;
+
     private EditText captcha;
     private EditText seatNumber;
     private EditText number;
-    private String captchaText = "";
-    private String ddlsessionText = "";
-    private String ddlbatchText = "";
+
     private Spinner sessionSpinner;
     private Spinner optionsSpinner;
     private Spinner groupsSpinner;
+
     private ImageView captchaImageView;
-    private Button submitButton;
+
     private ArrayList<String> groups = new ArrayList<>();
     private HashMap<String, String> options = new HashMap<>();
     private HashMap<String, String> sessions = new HashMap<>();
+
+    private String captchaText = "";
+    private String ddlsessionText = "";
+    private String ddlbatchText = "";
+
     private String __VIEWSTATEGENERATOR = "";
     private String __VIEWSTATE = "";
     private String __EVENTARGUMENT = "";
     private String __EVENTTARGET = "";
     private boolean isFetching = false;
     private String defaultSession = "";
-    private ArrayList<Subject> subjects = new ArrayList<>();
-    private Result result;
 
-    private TextView resultTextView;
-    private TextView subjectResultTextView;
-    private ListView listView;
+    private ArrayList<Subject> subjects = new ArrayList<>();
+    private Result result = new Result();
+
     private ArrayAdapter<Subject> listAdapter;
 
     private boolean isInit = true;
@@ -99,7 +106,7 @@ public class MainActivity extends Activity {
         optionsSpinner = (Spinner) findViewById(R.id.option);
         groupsSpinner = (Spinner) findViewById(R.id.group);
         captchaImageView = (ImageView) findViewById(R.id.captcha_image);
-        submitButton = (Button) findViewById(R.id.submit);
+        Button submitButton = (Button) findViewById(R.id.submit);
 
         number.setText(prefs.getString("number", ""));
         seatNumber.setText(prefs.getString("seatNumber", ""));
@@ -127,7 +134,9 @@ public class MainActivity extends Activity {
                 editor.putString("seatNumber", seatNumber.getText().toString());
                 editor.commit();
 
-                (new SubmitTask()).execute(HOST + PAGE);
+                result = new Result();
+                subjects.clear();
+                (new SubmitTask()).execute(HOST + PAGE, SubmitTask.FROM_CLICK);
             }
         });
 
@@ -193,7 +202,7 @@ public class MainActivity extends Activity {
 
                     if (!groupsSpinner.getSelectedItem().toString().equals(s)) {
 
-                        for (int i=0; i< groups.size(); i++) {
+                        for (int i = 0; i < groups.size(); i++) {
                             if (s != null && s.equals(groups.get(i))) {
                                 groupsSpinner.setSelection(i);
                                 break;
@@ -234,7 +243,7 @@ public class MainActivity extends Activity {
 
                     if (!optionsSpinner.getSelectedItem().toString().equals(s)) {
 
-                        for (int i=0; i< optionsAdapter.getCount(); i++) {
+                        for (int i = 0; i < optionsAdapter.getCount(); i++) {
                             if (s != null && s.equals(optionsAdapter.getItem(i))) {
                                 optionsSpinner.setSelection(i);
                                 break;
@@ -269,7 +278,7 @@ public class MainActivity extends Activity {
         (new HttpTask()).execute(HOST + PAGE);
     }
 
-    private void parseHtml(String html) {
+    private void parseHtml(String html, boolean isFromClick) {
         Document document = Jsoup.parse(html);
 
         Element sessionElement = document.getElementById("ddlsession");
@@ -352,8 +361,10 @@ public class MainActivity extends Activity {
             }
         }
 
-        // parse result
-        parseResult(document);
+        if (isFromClick) {
+            // parse result
+            parseResult(document);
+        }
     }
 
     private void parseResult(Document document) {
@@ -362,8 +373,6 @@ public class MainActivity extends Activity {
         if (name == null) {
             return;
         }
-
-        result = new Result();
 
         Element messageElement = document.getElementById("lblmsg");
         result.message = messageElement.text();
@@ -396,8 +405,6 @@ public class MainActivity extends Activity {
         Element subjectTable = resultTables.get(1);
 
         Elements results = subjectTable.getElementsByAttributeValue("width", "8%");
-
-        subjects.clear();
 
         for (int i = 0; i < results.size(); i++) {
             Subject subject = new Subject();
@@ -505,7 +512,7 @@ public class MainActivity extends Activity {
             try {
                 response = client.newCall(request).execute();
                 result = response.body().string();
-                parseHtml(result);
+                parseHtml(result, false);
 
                 return result;
             } catch (IOException e) {
@@ -534,6 +541,8 @@ public class MainActivity extends Activity {
     }
 
     class SubmitTask extends AsyncTask<String, Void, String> {
+
+        public final static String FROM_CLICK = "from_click";
 
         @Override
         protected String doInBackground(String... params) {
@@ -571,7 +580,13 @@ public class MainActivity extends Activity {
                 Response response = client.newCall(request).execute();
                 result = response.body().string();
 
-                parseHtml(result);
+                boolean isFromClick = false;
+
+                if (params.length > 1 && FROM_CLICK.equals(params[1])) {
+                    isFromClick = true;
+                }
+
+                parseHtml(result, isFromClick);
 
             } catch (IOException e) {
                 e.printStackTrace();
