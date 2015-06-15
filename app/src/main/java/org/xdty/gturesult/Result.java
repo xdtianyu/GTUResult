@@ -11,15 +11,15 @@ public class Result {
     String CPI = "";
 
     // search result
-    String name;
-    String enrollmentNumber;
-    String examSeat;
-    String declaredDate;
-    String exam;
-    String branch;
+    String name = "";
+    String enrollmentNumber = "";
+    String examSeat = "";
+    String declaredDate = "";
+    String exam = "";
+    String branch = "";
 
     public String toString() {
-        if (currentBacklog.isEmpty()&&totalBacklog.isEmpty()&&SPI.isEmpty()&&CPI.isEmpty()) {
+        if (currentBacklog.isEmpty() && totalBacklog.isEmpty() && SPI.isEmpty() && CPI.isEmpty()) {
             return "";
         } else {
             return "Current Sem. Backlog: " + currentBacklog + "\nTotal Backlog: " + totalBacklog + "\nSPI: " + SPI + "\nCPI: " + CPI;

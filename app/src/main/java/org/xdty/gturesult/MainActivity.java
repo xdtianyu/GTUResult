@@ -42,11 +42,15 @@ public class MainActivity extends Activity {
     private final static String HOST = "http://gturesults.in/";
     private final static String PAGE = "Default.aspx?ext=archive";
 
+    ArrayAdapter<String> currentAdapter;
     ArrayAdapter<String> sessionAdapter;
     ArrayAdapter<String> optionsAdapter;
     ArrayAdapter<String> groupsAdapter;
+
+    SharedPreferences prefs;
     SharedPreferences.Editor editor;
 
+    private TextView nameTextView;
     private TextView resultTextView;
     private TextView subjectResultTextView;
     private ListView listView;
@@ -55,6 +59,7 @@ public class MainActivity extends Activity {
     private EditText seatNumber;
     private EditText number;
 
+    private Spinner currentSpinner;
     private Spinner sessionSpinner;
     private Spinner optionsSpinner;
     private Spinner groupsSpinner;
@@ -83,6 +88,8 @@ public class MainActivity extends Activity {
 
     private boolean isInit = true;
 
+    private boolean isCurrent = false;
+
     @Override
     public void onBackPressed() {
         super.onBackPressed();
@@ -93,8 +100,9 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final SharedPreferences prefs = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+        prefs = getSharedPreferences(getPackageName(), MODE_PRIVATE);
 
+        nameTextView = (TextView) findViewById(R.id.name);
         resultTextView = (TextView) findViewById(R.id.result);
         subjectResultTextView = (TextView) findViewById(R.id.subject_result);
         listView = (ListView) findViewById(R.id.list);
@@ -102,6 +110,7 @@ public class MainActivity extends Activity {
         captcha = (EditText) findViewById(R.id.captcha);
         number = (EditText) findViewById(R.id.number);
         seatNumber = (EditText) findViewById(R.id.seat_number);
+        currentSpinner = (Spinner) findViewById(R.id.current);
         sessionSpinner = (Spinner) findViewById(R.id.session);
         optionsSpinner = (Spinner) findViewById(R.id.option);
         groupsSpinner = (Spinner) findViewById(R.id.group);
@@ -113,6 +122,8 @@ public class MainActivity extends Activity {
 
         defaultSession = prefs.getString("session", "");
         ddlsessionText = prefs.getString("session", "");
+
+        isCurrent = prefs.getBoolean("isCurrent", false);
 
         listAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, subjects);
 
@@ -136,17 +147,61 @@ public class MainActivity extends Activity {
 
                 result = new Result();
                 subjects.clear();
-                (new SubmitTask()).execute(HOST + PAGE, SubmitTask.FROM_CLICK);
+                (new SubmitTask()).execute(HOST, SubmitTask.FROM_CLICK);
             }
         });
 
+        currentAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
         sessionAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
         optionsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
         groupsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item);
 
+        currentSpinner.setAdapter(currentAdapter);
         sessionSpinner.setAdapter(sessionAdapter);
         groupsSpinner.setAdapter(groupsAdapter);
         optionsSpinner.setAdapter(optionsAdapter);
+
+        currentAdapter.add("Current");
+        currentAdapter.add("Archive");
+
+        currentSpinner.setSelection(isCurrent ? 0 : 1);
+
+        currentSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (!isFetching) {
+                    String s = currentSpinner.getSelectedItem().toString();
+
+                    if (s.equals("Current")) {
+                        isCurrent = true;
+                    } else if (s.equals("Archive")) {
+                        isCurrent = false;
+                    }
+
+                    editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
+                    editor.putBoolean("isCurrent", isCurrent);
+                    editor.commit();
+
+                    sessions.clear();
+                    options.clear();
+                    groups.clear();
+
+                    sessionAdapter.clear();
+                    optionsAdapter.clear();
+                    groupsAdapter.clear();
+                    sessionAdapter.notifyDataSetChanged();
+                    optionsAdapter.notifyDataSetChanged();
+                    groupsAdapter.notifyDataSetChanged();
+
+                    (new HttpTask()).execute(HOST);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
 
         sessionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -178,7 +233,7 @@ public class MainActivity extends Activity {
                     optionsAdapter.notifyDataSetChanged();
                     groupsAdapter.notifyDataSetChanged();
 
-                    (new SubmitTask()).execute(HOST + PAGE);
+                    (new SubmitTask()).execute(HOST);
                 }
             }
 
@@ -193,36 +248,7 @@ public class MainActivity extends Activity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
 
-                optionsAdapter.clear();
-
-                String s = groupsSpinner.getSelectedItem().toString();
-
-                if (isInit) {
-                    s = prefs.getString("groups", groupsSpinner.getSelectedItem().toString());
-
-                    if (!groupsSpinner.getSelectedItem().toString().equals(s)) {
-
-                        for (int i = 0; i < groups.size(); i++) {
-                            if (s != null && s.equals(groups.get(i))) {
-                                groupsSpinner.setSelection(i);
-                                break;
-                            }
-                        }
-                    }
-
-                } else {
-                    editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
-                    editor.putString("groups", s);
-                    editor.commit();
-                }
-
-                for (String option : options.keySet()) {
-                    if (options.get(option).startsWith(s)) {
-                        optionsAdapter.add(options.get(option));
-                    }
-                }
-
-                optionsAdapter.notifyDataSetChanged();
+                setOptions();
             }
 
             @Override
@@ -275,7 +301,45 @@ public class MainActivity extends Activity {
             }
         });
 
-        (new HttpTask()).execute(HOST + PAGE);
+        (new HttpTask()).execute(HOST);
+    }
+
+    private void setOptions() {
+        optionsAdapter.clear();
+
+        String s = groupsSpinner.getSelectedItem().toString();
+
+        if (isInit) {
+            s = prefs.getString("groups", groupsSpinner.getSelectedItem().toString());
+
+            if (!groupsSpinner.getSelectedItem().toString().equals(s)) {
+
+                int count = 0;
+                for (int i = 0; i < groups.size(); i++) {
+                    if (s != null && s.equals(groups.get(i))) {
+                        groupsSpinner.setSelection(i);
+                        break;
+                    }
+                    count++;
+                }
+                if (count == groups.size()) {
+                    s = groupsSpinner.getSelectedItem().toString();
+                }
+            }
+
+        } else {
+            editor = getSharedPreferences(getPackageName(), MODE_PRIVATE).edit();
+            editor.putString("groups", s);
+            editor.commit();
+        }
+
+        for (String option : options.keySet()) {
+            if (options.get(option).startsWith(s)) {
+                optionsAdapter.add(options.get(option));
+            }
+        }
+
+        optionsAdapter.notifyDataSetChanged();
     }
 
     private void parseHtml(String html, boolean isFromClick) {
@@ -283,19 +347,28 @@ public class MainActivity extends Activity {
 
         Element sessionElement = document.getElementById("ddlsession");
 
-        Elements sessionElements = sessionElement.getElementsByTag("option");
+        if (sessionElement != null) {
+            Elements sessionElements = sessionElement.getElementsByTag("option");
 
-        for (int i = 0; i < sessionElements.size(); i++) {
-            Element optionElement = sessionElements.get(i);
-            if (optionElement.attr("selected").equals("selected")) {
+            for (int i = 0; i < sessionElements.size(); i++) {
+                Element optionElement = sessionElements.get(i);
+                if (optionElement.attr("selected").equals("selected")) {
 
-                if (defaultSession.isEmpty()) {
-                    defaultSession = optionElement.val();
+                    if (defaultSession.isEmpty()) {
+                        defaultSession = optionElement.val();
+                    }
                 }
-            }
 
-            sessions.put(optionElement.val(), optionElement.text());
+                sessions.put(optionElement.val(), optionElement.text());
+            }
+        } else {
+            if (defaultSession.isEmpty()) {
+                defaultSession = "";
+            }
+            sessionElement = document.getElementById("lblSession");
+            sessions.put("", sessionElement.text());
         }
+
 
         Element selectElement = document.getElementById("ddlbatch");
 
@@ -364,6 +437,7 @@ public class MainActivity extends Activity {
         if (isFromClick) {
             // parse result
             parseResult(document);
+            updateName();
         }
     }
 
@@ -457,6 +531,16 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void updateName() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                nameTextView.setText(result.name);
+                seatNumber.setText(result.examSeat);
+            }
+        });
+    }
+
     private void updateUI() {
         Picasso.with(MainActivity.this).load(HOST + captchaText).into(captchaImageView);
         sessions = (HashMap<String, String>) Utils.sortByValue(sessions);
@@ -501,12 +585,18 @@ public class MainActivity extends Activity {
 
             isFetching = true;
 
+            String url = params[0];
+
+            if (!isCurrent) {
+                url += PAGE;
+            }
+
             String result = "";
 
             Response response = null;
             OkHttpClient client = new OkHttpClient();
             Request request = new Request.Builder()
-                    .url(params[0])
+                    .url(url)
                     .build();
 
             try {
@@ -536,7 +626,7 @@ public class MainActivity extends Activity {
             optionsAdapter.notifyDataSetChanged();
             groupsAdapter.notifyDataSetChanged();
 
-            (new SubmitTask()).execute(HOST + PAGE);
+            (new SubmitTask()).execute(HOST);
         }
     }
 
@@ -548,6 +638,12 @@ public class MainActivity extends Activity {
         protected String doInBackground(String... params) {
 
             String result = "";
+
+            String url = params[0];
+
+            if (!isCurrent) {
+                url += PAGE;
+            }
 
             isInit = true;
 
@@ -574,7 +670,7 @@ public class MainActivity extends Activity {
                 Log.d(TAG, body.toString());
 
                 Request request = new Request.Builder()
-                        .url(params[0])
+                        .url(url)
                         .post(body)
                         .build();
                 Response response = client.newCall(request).execute();
