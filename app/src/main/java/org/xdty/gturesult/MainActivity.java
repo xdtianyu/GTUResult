@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
 
     final static String errorCaptcha = "ERROR: Incorrect captcha code, try again.";
     private final static String TAG = "MainActivity";
-    private final static String HOST = "http://gturesults.in/";
+    private final static String HOST = "http://result1.gtu.ac.in/";
     private final static String PAGE = "Default.aspx?ext=archive";
 
     ArrayAdapter<String> currentAdapter;
