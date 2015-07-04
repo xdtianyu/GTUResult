@@ -1,6 +1,8 @@
 # GTUResult#
 This is a sample app using OkHttp and Picasso to check exam result.
 
+[![Google Play](http://developer.android.com/images/brand/en_generic_rgb_wo_45.png)](https://play.google.com/store/apps/details?id=org.xdty.gturesult)
+
 [![Download Status](https://img.shields.io/github/downloads/xdtianyu/GTUResult/latest/GTUResult-v1.2.0.apk.svg)](https://github.com/xdtianyu/GTUResult/releases/download/v1.2.0/GTUResult-v1.2.0.apk)
 
 [![Download Status](https://img.shields.io/github/downloads/xdtianyu/GTUResult/v1.1.1/total.svg)](https://github.com/xdtianyu/GTUResult/releases/download/v1.1.1/GTUResult-v1.1.1.apk)
